@@ -1,7 +1,31 @@
 use crate::math::Real;
 use bevy::reflect::reflect_remote;
+#[cfg(feature = "dim3")]
+use rapier::dynamics::FrictionModel;
 use rapier::dynamics::IntegrationParameters;
-use std::num::NonZeroUsize;
+
+/// Friction models used for all contact constraints between two rigid-bodies.
+///
+/// This selection does not apply to multibodies that always rely on the [`FrictionModel::Coulomb`].
+#[cfg(feature = "dim3")]
+#[reflect_remote(FrictionModel)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-serialize", derive(Serialize, Deserialize))]
+pub enum FrictionModelWrapper {
+    /// A simplified friction model significantly faster to solve than [`Self::Coulomb`]
+    /// but less accurate.
+    ///
+    /// Instead of solving one Coulomb friction constraint per contact in a contact manifold,
+    /// this approximation only solves one Coulomb friction constraint per group of 4 contacts
+    /// in a contact manifold, plus one "twist" constraint. The "twist" constraint is purely
+    /// rotational and aims to eliminate angular movement in the manifold’s tangent plane.
+    #[default]
+    Simplified,
+    /// The coulomb friction model.
+    ///
+    /// This results in one Coulomb friction constraint per contact point.
+    Coulomb,
+}
 
 #[reflect_remote(IntegrationParameters)]
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -86,9 +110,7 @@ pub struct IntegrationParametersWrapper {
     /// This value is implicitly scaled by [`IntegrationParameters::length_unit`].
     pub normalized_prediction_distance: Real,
     /// The number of solver iterations run by the constraints solver for calculating forces (default: `4`).
-    pub num_solver_iterations: NonZeroUsize,
-    /// Number of addition friction resolution iteration run during the last solver sub-step (default: `0`).
-    pub num_additional_friction_iterations: usize,
+    pub num_solver_iterations: usize,
     /// Number of internal Project Gauss Seidel (PGS) iterations run at each solver iteration (default: `1`).
     pub num_internal_pgs_iterations: usize,
     /// The number of stabilization iterations run at each solver iterations (default: `2`).
@@ -97,4 +119,8 @@ pub struct IntegrationParametersWrapper {
     pub min_island_size: usize,
     /// Maximum number of substeps performed by the  solver (default: `1`).
     pub max_ccd_substeps: usize,
+    /// The friction model used by the solver (default: `FrictionModel::Rigid`).
+    #[cfg(feature = "dim3")]
+    #[reflect(remote = FrictionModelWrapper)]
+    pub friction_model: FrictionModel,
 }
